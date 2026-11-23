@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [newCardLabel, setNewCardLabel] = useState('');
   const [qrCard, setQrCard] = useState(null);
+  const [assignCardId, setAssignCardId] = useState('');
   const [notice, setNotice] = useState(null);
 
   const formRef = useRef(null);
@@ -145,6 +146,25 @@ export default function AdminDashboard() {
   const cancelEdit = () => {
     setEditingId(null);
     setForm(EMPTY_BIZ);
+    setAssignCardId('');
+  };
+
+  const handleDeleteCard = async (card) => {
+    if (!window.confirm(`Delete card ${card.card_code}? Its link will stop working.`)) return;
+    const { error } = await supabase.from('cards').delete().eq('id', card.id);
+    if (error) notify('error', `Could not delete card: ${error.message}`);
+    else notify('success', `Card ${card.card_code} deleted`);
+    loadDashboardData();
+  };
+
+  const handleDeleteBusiness = async (biz) => {
+    if (!window.confirm(`Delete "${biz.name}"? Its cards will become unassigned.`)) return;
+    await supabase.from('cards').update({ business_id: null }).eq('business_id', biz.id);
+    const { error } = await supabase.from('businesses').delete().eq('id', biz.id);
+    if (error) notify('error', `Could not delete business: ${error.message}`);
+    else notify('success', `${biz.name} deleted`);
+    if (bizFilter === biz.id) setBizFilter('all');
+    loadDashboardData();
   };
 
   const handleSaveBusiness = async (e) => {
@@ -170,7 +190,12 @@ export default function AdminDashboard() {
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
-      ({ error } = await supabase.from('businesses').insert({ ...payload, slug }));
+      const res = await supabase.from('businesses').insert({ ...payload, slug }).select('id').single();
+      error = res.error;
+      if (!error && assignCardId && res.data?.id) {
+        const assign = await supabase.from('cards').update({ business_id: res.data.id }).eq('id', assignCardId);
+        if (assign.error) notify('error', `Business saved, but card assignment failed: ${assign.error.message}`);
+      }
     }
     setSaving(false);
 
@@ -282,7 +307,10 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-stone-950 text-stone-100 p-6 md:p-10 max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between border-b border-stone-800 pb-5">
         <div>
-          <h1 className="text-2xl font-semibold">Wasla NFC Control Panel</h1>
+          <h1 className="text-2xl font-semibold">
+            Wasla NFC Control Panel
+            <span className="ml-2 align-middle text-[10px] font-semibold text-amber-400 border border-amber-400/50 rounded-full px-2 py-0.5">v2</span>
+          </h1>
           <p className="text-xs text-stone-400 mt-1">Manage venues, cards and monitor activity</p>
         </div>
         <button
@@ -386,6 +414,13 @@ export default function AdminDashboard() {
                         <Pencil className="w-3 h-3" />
                         <span>Edit</span>
                       </button>
+                      <button
+                        onClick={() => handleDeleteBusiness(biz)}
+                        className="ml-3 inline-flex items-center gap-1 text-xs text-rose-400 hover:underline"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -450,6 +485,13 @@ export default function AdminDashboard() {
                         <QrCode className="w-3 h-3" />
                         <span>QR</span>
                       </button>
+                      <button
+                        onClick={() => handleDeleteCard(card)}
+                        className="inline-flex items-center gap-1 text-rose-400 hover:underline"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -478,7 +520,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {editingId ? <Pencil className="w-4 h-4 text-amber-400" /> : <Plus className="w-4 h-4 text-amber-400" />}
-            <h2 className="text-lg font-semibold">{editingId ? 'Edit business' : 'Add café or restaurant'}</h2>
+            <h2 className="text-lg font-semibold">{editingId ? 'Edit client' : 'Add a new client (café or restaurant)'}</h2>
           </div>
           {editingId && (
             <button type="button" onClick={cancelEdit} className="text-xs text-stone-400 hover:text-stone-100">
@@ -528,6 +570,22 @@ export default function AdminDashboard() {
               className="w-8 h-7 bg-transparent border-0 cursor-pointer"
             />
           </div>
+          {!editingId && (
+            <select
+              value={assignCardId}
+              onChange={(e) => setAssignCardId(e.target.value)}
+              className={`${inputCls} md:col-span-3`}
+            >
+              <option value="">Assign a card now (optional)</option>
+              {cards
+                .filter((c) => !c.business_id)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.card_code} {c.label ? `· ${c.label}` : ''}
+                  </option>
+                ))}
+            </select>
+          )}
           <input
             placeholder="Welcome message"
             value={form.tagline}
