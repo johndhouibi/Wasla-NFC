@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import CustomerTapPage from './pages/CustomerTapPage.jsx'
 
@@ -14,6 +14,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/t/:cardCode" element={<CustomerTapPage />} />
         <Route path="*" element={<NotFound />} />
