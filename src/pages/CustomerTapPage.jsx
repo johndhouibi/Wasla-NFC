@@ -27,25 +27,23 @@ const STRINGS = {
   fr: {
     loading: 'Chargement...',
     inactive: "Cette carte n'est pas encore activée.",
-    notFound: 'Carte introuvable',
     code: 'Code',
     review: 'Laissez-nous un avis sur Google',
     noteToggle: 'Envoyer un message privé au manager',
     notePlaceholder: 'Une remarque ou une suggestion pour le manager...',
     send: 'Envoyer le message',
     sending: 'Envoi...',
-    thanks: 'Merci ! Votre message a été transmis à l\'équipe.',
+    thanks: "Merci ! Votre message a été transmis à l'équipe.",
     greeting: 'Bonjour',
   },
   en: {
     loading: 'Loading...',
     inactive: 'This NFC card is not active yet.',
-    notFound: 'Card not found',
     code: 'Code',
-    review: 'Review Us on Google',
+    review: 'Review us on Google',
     noteToggle: 'Send a private note to the manager',
     notePlaceholder: 'Share a quick thought or suggestion with the manager...',
-    send: 'Send Private Note',
+    send: 'Send private note',
     sending: 'Sending...',
     thanks: 'Thank you. Your message was sent to the team.',
     greeting: 'Hello',
@@ -58,6 +56,16 @@ const detectLang = () => {
   } catch {
     return 'fr';
   }
+};
+
+// Relative luminance of a #rrggbb color, used to keep text readable on any brand color.
+const luminance = (hex) => {
+  const h = (hex || '').replace('#', '');
+  if (h.length !== 6) return 0.5;
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 };
 
 export default function CustomerTapPage() {
@@ -124,18 +132,16 @@ export default function CustomerTapPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 text-stone-300 flex items-center justify-center text-sm tracking-wide">
-        {t.loading}
-      </div>
+      <div className="min-h-screen bg-page text-mute flex items-center justify-center text-sm">{t.loading}</div>
     );
   }
 
   if (errorMsg || !cardData) {
     return (
-      <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-lg font-medium">{t.inactive}</p>
-        <p className="text-xs text-stone-400 mt-2">
-          {t.code}: {cardCode}
+      <div className="min-h-screen bg-page text-ink flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-lg font-semibold tracking-tight">{t.inactive}</p>
+        <p className="text-xs text-mute mt-2">
+          {t.code} <span className="font-mono">{cardCode}</span>
         </p>
       </div>
     );
@@ -143,6 +149,9 @@ export default function CustomerTapPage() {
 
   const biz = cardData.businesses;
   const accent = biz.accent_color || '#D97706';
+  const tileText = luminance(accent) > 0.4 ? '#000000' : '#ffffff';
+  const starColor = luminance(accent) > 0.2 ? accent : '#ffffff';
+
   const googleReviewUrl = biz.google_place_id
     ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(biz.google_place_id)}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${biz.name} ${biz.city || ''}`.trim())}`;
@@ -166,45 +175,45 @@ export default function CustomerTapPage() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md rounded-3xl bg-stone-900 border border-stone-800 p-6 shadow-2xl space-y-6 relative">
-        {/* Language toggle */}
+    <div className="min-h-screen bg-page text-ink flex items-center justify-center px-4 py-8">
+      <div className="panel w-full max-w-md rounded-[2rem] p-7 space-y-7 relative">
         <button
           type="button"
           onClick={() => setLang((l) => (l === 'fr' ? 'en' : 'fr'))}
-          className="absolute top-4 right-4 text-[11px] font-semibold text-stone-400 hover:text-stone-100 border border-stone-700 rounded-full px-2.5 py-1 transition"
+          className="btn-ghost absolute top-5 right-5 px-3! py-1!"
         >
           {lang === 'fr' ? 'EN' : 'FR'}
         </button>
 
         {/* Header */}
-        <div className="text-center space-y-2 pt-1">
+        <div className="space-y-3 pt-2">
           <div
-            className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-semibold text-stone-950 shadow-md"
-            style={{ backgroundColor: accent }}
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-semibold shadow-md"
+            style={{ backgroundColor: accent, color: tileText }}
           >
             {biz.name.slice(0, 2).toUpperCase()}
           </div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-stone-400 pt-2">{biz.city}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{biz.name}</h1>
-          <p className="text-sm text-stone-300 leading-relaxed">{biz.tagline}</p>
+          <div>
+            {biz.city && <p className="text-sm text-mute">{biz.city}</p>}
+            <h1 className="text-3xl font-semibold tracking-tight leading-tight">{biz.name}</h1>
+          </div>
+          {biz.tagline && <p className="text-mute leading-relaxed">{biz.tagline}</p>}
         </div>
 
-        {/* Primary CTA: Google Review */}
+        {/* Primary action: Google review */}
         <a
           href={googleReviewUrl}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackEvent(biz.id, cardData.id, 'google_click')}
-          style={{ backgroundColor: accent }}
-          className="w-full rounded-2xl py-4 px-5 text-stone-950 font-semibold flex flex-col items-center justify-center gap-1.5 shadow-lg active:scale-[0.99] transition"
+          className="w-full rounded-2xl bg-ink text-paper py-5 px-5 flex flex-col items-center gap-2 transition hover:bg-ink-soft active:scale-[0.99]"
         >
-          <div className="flex items-center gap-1">
+          <span className="flex items-center gap-1">
             {[...Array(5)].map((_, idx) => (
-              <Star key={idx} className="w-4 h-4 fill-stone-950 text-stone-950" />
+              <Star key={idx} className="w-4 h-4" style={{ fill: starColor, color: starColor }} />
             ))}
-          </div>
-          <span className="text-base tracking-tight text-center">{t.review}</span>
+          </span>
+          <span className="text-base font-semibold tracking-tight text-center">{t.review}</span>
         </a>
 
         {/* Secondary actions */}
@@ -216,22 +225,21 @@ export default function CustomerTapPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent(biz.id, cardData.id, 'instagram_click')}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-stone-800/90 hover:bg-stone-800 border border-stone-700/70 py-3.5 px-4 text-sm font-medium text-stone-100 transition"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-paper border border-line py-3.5 px-4 text-sm font-medium transition hover:border-ink"
               >
-                <Instagram className="w-4 h-4 text-amber-400" />
+                <Instagram className="w-4 h-4" />
                 <span>Instagram</span>
               </a>
             )}
-
             {waUrl && (
               <a
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackEvent(biz.id, cardData.id, 'whatsapp_click')}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-stone-800/90 hover:bg-stone-800 border border-stone-700/70 py-3.5 px-4 text-sm font-medium text-stone-100 transition"
+                className="flex items-center justify-center gap-2 rounded-2xl bg-paper border border-line py-3.5 px-4 text-sm font-medium transition hover:border-ink"
               >
-                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <MessageCircle className="w-4 h-4" />
                 <span>WhatsApp</span>
               </a>
             )}
@@ -239,14 +247,14 @@ export default function CustomerTapPage() {
         )}
 
         {/* Private note */}
-        <div className="border-t border-stone-800 pt-4">
+        <div className="border-t border-line pt-4">
           <button
             type="button"
             onClick={() => {
               setNoteOpen((prev) => !prev);
               setNoteSent(false);
             }}
-            className="w-full flex items-center justify-between text-xs text-stone-400 hover:text-stone-200 transition py-1"
+            className="w-full flex items-center justify-between text-sm text-mute hover:text-ink transition py-1"
           >
             <span>{t.noteToggle}</span>
             {noteOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -255,24 +263,20 @@ export default function CustomerTapPage() {
           {noteOpen && (
             <div className="mt-3">
               {noteSent ? (
-                <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-3">
+                <div className="flex items-center gap-2 text-sm bg-soft rounded-xl p-3.5">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>{t.thanks}</span>
                 </div>
               ) : (
-                <form onSubmit={handleFeedbackSubmit} className="space-y-2.5">
+                <form onSubmit={handleFeedbackSubmit} className="space-y-3">
                   <textarea
                     rows={3}
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder={t.notePlaceholder}
-                    className="w-full rounded-xl bg-stone-950 border border-stone-800 px-3 py-2 text-xs text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-600"
+                    className="field resize-none"
                   />
-                  <button
-                    type="submit"
-                    disabled={submittingNote || !noteText.trim()}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-stone-100 text-stone-950 py-2.5 text-xs font-semibold disabled:opacity-40"
-                  >
+                  <button type="submit" disabled={submittingNote || !noteText.trim()} className="btn-primary w-full">
                     <Send className="w-3.5 h-3.5" />
                     <span>{submittingNote ? t.sending : t.send}</span>
                   </button>
@@ -282,7 +286,10 @@ export default function CustomerTapPage() {
           )}
         </div>
 
-        <p className="text-center text-[11px] text-stone-500">Powered by Wasla NFC · {cardData.card_code}</p>
+        <div className="flex items-center justify-between text-xs text-mute">
+          <span>Wasla NFC</span>
+          <span className="font-mono">{cardData.card_code}</span>
+        </div>
       </div>
     </div>
   );

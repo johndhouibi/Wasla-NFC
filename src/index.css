@@ -1,12 +1,66 @@
 @import "tailwindcss";
 
+@theme {
+  --color-page: #ffffff;
+  --color-paper: #ffffff;
+  --color-soft: #f5f5f5;
+  --color-ink: #000000;
+  --color-ink-soft: #262626;
+  --color-mute: #6b6b6b;
+  --color-line: #e5e5e5;
+  --color-danger: #b3261e;
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
 html,
 body {
   margin: 0;
-  background: #0c0a09;
+  background: var(--color-page);
+  color: var(--color-ink);
 }
 
 body {
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-3xl bg-paper border border-line p-6;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 32px -24px rgba(0, 0, 0, 0.18);
+  }
+  .field {
+    @apply w-full rounded-xl bg-soft border border-line px-3.5 py-2.5 text-sm text-ink placeholder:text-mute outline-none transition focus:border-ink focus:bg-paper;
+  }
+  .field-sm {
+    @apply rounded-lg bg-soft border border-line px-3 py-1.5 text-xs text-ink outline-none transition focus:border-ink;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink text-paper px-5 py-2.5 text-sm font-semibold transition hover:bg-ink-soft active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-paper text-ink border border-line px-4 py-2 text-xs font-semibold transition hover:border-ink;
+  }
+  .link-action {
+    @apply inline-flex items-center gap-1 text-xs font-medium text-ink underline-offset-4 hover:underline;
+  }
+  .link-danger {
+    @apply inline-flex items-center gap-1 text-xs font-medium text-danger underline-offset-4 hover:underline;
+  }
+  .th {
+    @apply py-2.5 pr-4 text-left text-xs font-medium text-mute;
+  }
 }

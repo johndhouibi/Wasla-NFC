@@ -5,7 +5,7 @@ import CustomerTapPage from './pages/CustomerTapPage.jsx'
 
 function NotFound() {
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-300 flex items-center justify-center text-sm">
+    <div className="min-h-screen bg-page text-mute flex items-center justify-center text-sm">
       Page not found.
     </div>
   )
