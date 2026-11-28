@@ -11,6 +11,7 @@ const EMPTY_BIZ = {
   google_place_id: '',
   instagram_handle: '',
   whatsapp_number: '216',
+  owner_email: '',
 };
 
 const SWATCHES = ['#D97706', '#000000', '#9a3412', '#166534', '#1d4ed8'];
@@ -59,6 +60,8 @@ export default function AdminDashboard() {
   const [qrCard, setQrCard] = useState(null);
   const [assignCardId, setAssignCardId] = useState('');
   const [notice, setNotice] = useState(null);
+  const [owners, setOwners] = useState([]);
+  const [holders, setHolders] = useState({});
 
   const formRef = useRef(null);
   const qrRef = useRef(null);
@@ -80,16 +83,23 @@ export default function AdminDashboard() {
   }, []);
 
   const loadDashboardData = async () => {
-    const [biz, crd, evt] = await Promise.all([
+    const [biz, crd, evt, own, hol] = await Promise.all([
       supabase.from('businesses').select('*').order('created_at', { ascending: false }),
       supabase.from('cards').select('*, businesses(name)').order('card_code', { ascending: true }),
       supabase.from('analytics_events').select('*').order('created_at', { ascending: false }).limit(5000),
+      supabase.from('business_owners').select('*'),
+      supabase.from('card_holders').select('card_id, holder_name'),
     ]);
     const firstError = biz.error || crd.error || evt.error;
     if (firstError) notify('error', `Could not load data: ${firstError.message}`);
     setBusinesses(biz.data || []);
     setCards(crd.data || []);
     setEvents(evt.data || []);
+    // owner tables only exist after supabase_owner_update.sql has been run
+    setOwners(own.data || []);
+    setHolders(
+      Object.fromEntries((hol.data || []).filter((r) => r.holder_name).map((r) => [String(r.card_id), r.holder_name]))
+    );
   };
 
   useEffect(() => {
@@ -128,6 +138,9 @@ export default function AdminDashboard() {
 
   const tapUrl = (code) => `${window.location.origin}/t/${code}`;
 
+  const ownerEmailFor = (bizId) =>
+    owners.find((o) => String(o.business_id) === String(bizId))?.email || '';
+
   const nextCardCode = () => {
     const nums = cards
       .map((c) => parseInt((c.card_code || '').replace(/\D/g, ''), 10))
@@ -147,6 +160,7 @@ export default function AdminDashboard() {
       google_place_id: biz.google_place_id || '',
       instagram_handle: biz.instagram_handle || '',
       whatsapp_number: biz.whatsapp_number || '',
+      owner_email: ownerEmailFor(biz.id),
     });
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
@@ -171,6 +185,7 @@ export default function AdminDashboard() {
     };
 
     let error;
+    let savedId = editingId;
     if (editingId) {
       ({ error } = await supabase.from('businesses').update(payload).eq('id', editingId));
     } else {
@@ -182,9 +197,29 @@ export default function AdminDashboard() {
         .replace(/(^-|-$)/g, '');
       const res = await supabase.from('businesses').insert({ ...payload, slug }).select('id').single();
       error = res.error;
-      if (!error && assignCardId && res.data?.id) {
-        const assign = await supabase.from('cards').update({ business_id: res.data.id }).eq('id', assignCardId);
+      savedId = res.data?.id;
+      if (!error && assignCardId && savedId) {
+        const assign = await supabase.from('cards').update({ business_id: savedId }).eq('id', assignCardId);
         if (assign.error) notify('error', `Client saved, but card assignment failed: ${assign.error.message}`);
+      }
+    }
+
+    // keep the owner login email in sync (one owner per client for now)
+    if (!error && savedId) {
+      const email = form.owner_email.trim().toLowerCase();
+      const current = owners.filter((o) => String(o.business_id) === String(savedId));
+      const unchanged = current.length === 1 && current[0].email.toLowerCase() === email;
+      if (!unchanged) {
+        let ownerError = null;
+        if (current.length) {
+          ownerError = (await supabase.from('business_owners').delete().eq('business_id', String(savedId))).error;
+        }
+        if (!ownerError && email) {
+          ownerError = (await supabase.from('business_owners').insert({ business_id: String(savedId), email })).error;
+        }
+        if (ownerError) {
+          notify('error', `Client saved, but the owner email failed: ${ownerError.message}`);
+        }
       }
     }
     setSaving(false);
@@ -201,6 +236,7 @@ export default function AdminDashboard() {
   const handleDeleteBusiness = async (biz) => {
     if (!window.confirm(`Delete "${biz.name}"? Its cards will become unassigned.`)) return;
     await supabase.from('cards').update({ business_id: null }).eq('business_id', biz.id);
+    await supabase.from('business_owners').delete().eq('business_id', String(biz.id));
     const { error } = await supabase.from('businesses').delete().eq('id', biz.id);
     if (error) notify('error', `Could not delete client: ${error.message}`);
     else notify('success', `${biz.name} deleted`);
@@ -397,6 +433,9 @@ export default function AdminDashboard() {
                           style={{ backgroundColor: biz.accent_color || '#000' }}
                         />
                         <span className="font-medium align-middle">{biz.name}</span>
+                        <span className="block text-xs text-mute mt-0.5">
+                          {ownerEmailFor(biz.id) || 'No owner login yet'}
+                        </span>
                       </td>
                       <td className="py-3 pr-4 tabular-nums">{stats.taps}</td>
                       <td className="py-3 pr-4 tabular-nums">{stats.google}</td>
@@ -442,6 +481,7 @@ export default function AdminDashboard() {
                     <tr className="border-b border-line">
                       <th className="th">Code</th>
                       <th className="th">Placement</th>
+                      <th className="th">Held by</th>
                       <th className="th">Client</th>
                       <th className="th"></th>
                     </tr>
@@ -451,6 +491,7 @@ export default function AdminDashboard() {
                       <tr key={card.id} className="hover:bg-soft">
                         <td className="py-3 pr-4 font-mono font-medium">{card.card_code}</td>
                         <td className="py-3 pr-4 text-mute">{card.label}</td>
+                        <td className="py-3 pr-4 text-mute">{holders[String(card.id)] || '-'}</td>
                         <td className="py-3 pr-4">
                           <select
                             value={card.business_id || ''}
@@ -570,6 +611,15 @@ export default function AdminDashboard() {
                     placeholder="21622123456"
                   />
                 </Field>
+                <Field label="Owner login email (optional)" className="col-span-2">
+                  <input
+                    type="email"
+                    value={form.owner_email}
+                    onChange={(e) => setForm({ ...form, owner_email: e.target.value })}
+                    className="field"
+                    placeholder="owner@example.com"
+                  />
+                </Field>
               </div>
 
               <div>
@@ -623,6 +673,10 @@ export default function AdminDashboard() {
                   Google's Place ID Finder
                 </a>
                 . Leave Instagram or WhatsApp empty to hide that button.
+              </p>
+              <p className="text-xs text-mute">
+                Owner login: create the same email in Supabase under Authentication, then Users, with Auto Confirm on.
+                Send the owner the address {window.location.origin}/owner with that email and password.
               </p>
 
               <button type="submit" disabled={saving} className="btn-primary w-full">

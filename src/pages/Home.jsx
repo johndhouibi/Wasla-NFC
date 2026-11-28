@@ -4,8 +4,8 @@ export default function Home() {
       <div className="w-full max-w-6xl mx-auto px-6 md:px-12 flex-1 flex flex-col">
         <header className="flex items-center justify-between py-6">
           <span className="text-lg font-semibold tracking-tight">Wasla NFC</span>
-          <a href="/admin" className="btn-ghost">
-            Espace opérateur
+          <a href="/owner" className="btn-ghost">
+            Espace client
           </a>
         </header>
 
@@ -18,8 +18,8 @@ export default function Home() {
               Des cartes NFC et des QR codes pour les cafés et restaurants. Vos clients laissent un avis en quelques
               secondes, et vous voyez ce qui marche.
             </p>
-            <a href="/admin" className="btn-primary">
-              Espace opérateur
+            <a href="/owner" className="btn-primary">
+              Espace client
             </a>
           </div>
         </main>
