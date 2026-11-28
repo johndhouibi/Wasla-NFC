@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
+import OwnerDashboard from './pages/OwnerDashboard.jsx'
 import CustomerTapPage from './pages/CustomerTapPage.jsx'
 
 function NotFound() {
@@ -16,6 +17,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/owner" element={<OwnerDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/t/:cardCode" element={<CustomerTapPage />} />
         <Route path="*" element={<NotFound />} />
